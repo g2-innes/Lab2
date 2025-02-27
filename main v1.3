@@ -1,0 +1,89 @@
+#include "mbed.h"
+#include "arm_book_lib.h"
+
+DigitalIn enterButton(BUTTON1);
+DigitalIn gasDetector(D2,PullDown);
+DigitalIn overTempDetector(D3,PullDown);
+DigitalIn aButton(D4,PullDown);
+DigitalIn bButton(D5,PullDown);
+DigitalIn cButton(D6,PullDown);
+DigitalIn dButton(D7,PullDown);
+
+DigitalOut alarmLed(LED1);
+DigitalOut incorrectCodeLed(LED3);
+DigitalOut systemBlockedLed(LED2);
+
+bool alarmState = OFF;
+bool emergencyFlash = false;
+int numberOfIncorrectCodes = 0;
+int lockPeriod = 60000;
+int blinkSpeed = 1000;
+
+void lockout() {
+    for (int i = 0; i < lockPeriod / blinkSpeed; i++){
+        systemBlockedLed = !systemBlockedLed;
+        thread_sleep_for(blinkSpeed);
+        }
+
+    numberOfIncorrectCodes = 0;
+    systemBlockedLed = OFF;
+}
+    
+
+void doubleAlarm(){
+            if ( gasDetector && overTempDetector ) {
+              emergencyFlash = true;
+             
+            }
+}
+
+int main(){
+
+    alarmLed = OFF;
+    incorrectCodeLed = OFF;
+    systemBlockedLed = OFF;
+
+    while (true) {
+        
+        doubleAlarm();
+               
+        if (emergencyFlash){
+            alarmLed = !alarmLed;
+            thread_sleep_for(500);
+        }
+              
+        if ( gasDetector || overTempDetector ) {
+            alarmState = ON;
+            alarmLed = ON;
+        }    
+
+        if ( numberOfIncorrectCodes < 5 ) {
+        incorrectCodeLed = OFF;
+        
+            if ( enterButton && alarmState && !incorrectCodeLed) {
+                if (emergencyFlash && aButton && bButton && cButton && dButton ) {
+                    emergencyFlash = false;
+                    alarmLed = OFF;
+                    incorrectCodeLed = OFF;              
+                    numberOfIncorrectCodes = 0;
+                    thread_sleep_for(1000);
+
+                } else if(!emergencyFlash && aButton && bButton && !cButton && !dButton){
+                    alarmLed = OFF;
+                    incorrectCodeLed = OFF;              
+                    numberOfIncorrectCodes = 0;
+                    thread_sleep_for(1000);
+                }
+
+                else{
+                    numberOfIncorrectCodes = numberOfIncorrectCodes + 1;
+                    incorrectCodeLed = ON;
+                    thread_sleep_for(1000);
+                }
+            }
+        }
+        else {
+            lockout();
+        }
+    }
+}
